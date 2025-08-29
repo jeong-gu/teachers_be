@@ -112,8 +112,7 @@ body {
 .instructor-card {
   background: white;
   border-radius: 20px;
-  padding: 30px;
-  margin-bottom: 30px;
+  padding: 20px;
   text-align: center;
   min-width: 350px;
 }
@@ -139,13 +138,14 @@ body {
 }
 
 .instructor-photo {
-  width: 150px;
-  height: 150px;
+  width: 215px;
+  height: 215px;
   border-radius: 50%;
   object-fit: cover;
   margin: 0 auto 30px;
   cursor: pointer;
   display: block;
+  object-position: center -10%; /* 가로 중앙, 세로 위치를 65% 지점으로 조정 */
 }
 
 .instructor-select {
