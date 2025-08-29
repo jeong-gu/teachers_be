@@ -12,6 +12,7 @@ soundfile
 pdf2image
 langchain
 chromadb
+pydub
 pydantic-settings
 # Naver LLM/Embedding용 (사용 중이면)
 python-multipart

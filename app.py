@@ -501,6 +501,7 @@ async def chat(request: Request, teacher: str):
         {"request": request, "teacher": teacher_info, "teacher_key": teacher}
     )
 
+
 # =========================
 # 12) PDF Ingest → FAISS + Units
 # =========================
@@ -557,7 +558,7 @@ def segment_text_local(
     paras = [p.strip() for p in re.split(r"\n\s*\n+", t) if p.strip()]
 
     def split_sents(block: str) -> List[str]:
-        return [s.strip() for s in re.split(r'(?<=[.?!…]|[가-힣]\))\s+', block) if s.strip()]
+        return [s.strip() for s in re.split(r'(?<=[.?!…])\s+|(?<=[가-힣]\))\s+', block) if s.strip()]
 
     expanded: List[str] = []
     for p in paras:
@@ -621,23 +622,29 @@ def _resample_to_16k_mono(audio: np.ndarray, sr: int, target_sr: int = 16000) ->
 def _write_pcm16_wav(path: str, audio: np.ndarray, sr: int = 16000):
     sf.write(path, audio, sr, subtype="PCM_16")
 
-def _split_wav_by_seconds(src_path: str, chunk_seconds: int = 55) -> List[str]:
-    """길면 초 단위로 잘라 여러 파일 경로 반환."""
-    audio, sr = sf.read(src_path, always_2d=False)
-    audio = audio if isinstance(audio, np.ndarray) else np.array(audio)
-    audio = _resample_to_16k_mono(audio, sr, target_sr=16000)
-    frames = len(audio)
-    hop = int(chunk_seconds * 16000)
-    out_paths: List[str] = []
+from pydub import AudioSegment
+from pathlib import Path
+import uuid
+
+def _split_wav_by_seconds(src_path: str, chunk_seconds: int = 55):
+    """
+    WAV 파일을 chunk_seconds 단위로 나누어 개별 wav 파일 경로 리스트 반환
+    """
+    audio = AudioSegment.from_file(src_path, format="wav")
+    total_ms = len(audio)  # 전체 길이 (ms)
+
+    out_files = []
     base = Path(src_path)
-    for i, start in enumerate(range(0, frames, hop)):
-        seg = audio[start:start+hop]
-        if len(seg) == 0:
-            continue
-        out_p = str(base.with_name(f"{base.stem}_part{i+1}.wav"))
-        _write_pcm16_wav(out_p, seg, 16000)
-        out_paths.append(out_p)
-    return out_paths
+    for start_ms in range(0, total_ms, chunk_seconds * 1000):
+        end_ms = min(start_ms + chunk_seconds * 1000, total_ms)
+        chunk = audio[start_ms:end_ms]
+
+        out_path = base.parent / f"{base.stem}_{uuid.uuid4().hex}.wav"
+        chunk.export(out_path, format="wav", parameters=["-ar", "16000", "-ac", "1"])
+        out_files.append(str(out_path))
+
+    return out_files
+
 
 # === CSR 단일 호출 ===
 STT_ENDPOINT = "https://naveropenapi.apigw.ntruss.com/recog/v1/stt"
@@ -850,7 +857,49 @@ async def ingest_api(file: UploadFile = File(...)):
         "message": f"{ext.upper()} 업로드 및 벡터 저장 완료"
     }
 
+import tempfile
 
+@app.post("/mic")
+async def mic_upload(file: UploadFile = File(...)):
+    # 임시 저장
+    tmp_path = Path(tempfile.gettempdir()) / f"mic_{uuid.uuid4().hex}.webm"
+    with open(tmp_path, "wb") as f:
+        shutil.copyfileobj(file.file, f)
+
+    print(f"[DEBUG] 업로드된 파일 저장: {tmp_path}")
+
+    # STT
+    wav_path = str(tmp_path).replace(".webm", ".wav")
+    os.system(f"ffmpeg -i {tmp_path} -ar 16000 -ac 1 {wav_path} -y")
+    print(f"[DEBUG] 변환된 wav 파일 경로: {wav_path}")
+
+    query_text = stt_transcribe_wav_to_text(wav_path, lang="ko-KR").strip()
+    print(f"[DEBUG] STT 결과 텍스트: {query_text}")
+
+    if not query_text:
+        print("[WARN] STT 실패 → 텍스트가 비어있음")
+        return JSONResponse({"error": "STT 실패"})
+
+    result = qa_chain.invoke({"query": query_text})
+    answer = result.get("result") or result.get("output_text") or ""
+    print(f"[DEBUG] LLM 답변: {answer}")
+
+    # TTS 저장
+    tts_fname = f"tts_{uuid.uuid4().hex}.mp3"
+    tts_path = Path("static/tts") / tts_fname
+    tts_path.parent.mkdir(parents=True, exist_ok=True)
+    speak(answer, base_fname=str(tts_path.with_suffix("")))
+
+    print(f"[DEBUG] TTS 파일 저장: {tts_path}")
+
+    response = {
+        "question": query_text,
+        "answer": answer,
+        "tts_url": f"/static/tts/{tts_fname}"
+    }
+    print(f"[DEBUG] 최종 응답: {response}")
+
+    return response
 
 # =========================
 # 13) Chat (명령어/강의/RAG → TTS)
@@ -885,7 +934,7 @@ async def chat_api(req: ChatReq):
     raw = req.question.strip()
     audio_url, audio_urls, audio_path = None, None, None
 
-    # ===== 강의 명령어 처리 =====
+        # ===== 강의 명령어 처리 =====
     if raw in ("/teach", "/next", "/prev") or raw.startswith("/goto"):
         units = UNITS_BY_DOC.get(doc_id)
         if not units:
@@ -906,10 +955,9 @@ async def chat_api(req: ChatReq):
         cur = LECTURE_STATE.get(req.session_id, 0)
 
         if raw == "/prev":
-            cur = max(0, cur - 1)
+            cur = cur - 1
         elif raw == "/next":
-            if cur < len(units) - 1:
-                cur += 1
+            cur = cur + 1
         elif raw.startswith("/goto"):
             m = re.search(r"/goto\s+(\d+)", raw)
             if m:
@@ -927,6 +975,12 @@ async def chat_api(req: ChatReq):
                     else:
                         idx = min(range(len(units)), key=lambda i: abs(units[i]["page"] - page_target))
                 cur = idx
+
+        #   범위 보정: 음수 방지, 마지막 페이지 넘어가면 마지막으로 고정
+        if cur < 0:
+            cur = 0
+        if cur >= len(units):
+            cur = len(units) - 1
 
         LECTURE_STATE[req.session_id] = cur
         unit = units[cur]

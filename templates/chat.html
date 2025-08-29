@@ -37,8 +37,8 @@
             <button class="control-btn" onclick="togglePlay()">
               <img id="playIcon" src="/static/img/icons/play.png" alt="재생" />
             </button>
-            <button class="control-btn" onclick="toggleMute()">
-              <img id="muteIcon" src="/static/img/icons/mic-on.png" alt="음소거" />
+            <button class="control-btn" onclick="toggleMic()">
+              <img id="micIcon" src="/static/img/icons/mic-on.png" alt="마이크" />
             </button>
             <button class="control-btn next-btn" onclick="sendLectureCommand('/next')">&gt;</button>
             <button class="control-btn" onclick="closeSession()">
@@ -136,11 +136,87 @@
 
     <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
 
-    <script>
+  <script>
   let isPlaying = false;
   let isMuted = false;
   let chatMessages = [];
   let currentAudio = null;   // 오디오 객체
+  let mediaRecorder;
+  let audioChunks = [];
+  let isRecording = false;
+
+  async function toggleMic() {
+  if (!isRecording) {
+    console.log("[DEBUG] 마이크 시작 요청");
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    console.log("[DEBUG] 마이크 스트림 확보:", stream);
+
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.start();
+    console.log("[DEBUG] MediaRecorder 시작됨");
+
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) {
+        audioChunks.push(e.data);
+        console.log("[DEBUG] 오디오 chunk 추가:", e.data.size, "bytes");
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      console.log("[DEBUG] 녹음 중지됨. chunk 개수:", audioChunks.length);
+
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+      console.log("[DEBUG] Blob 생성 완료:", audioBlob);
+
+      const formData = new FormData();
+      formData.append("file", audioBlob, "mic.webm");
+      console.log("[DEBUG] FormData 준비 완료");
+
+      try {
+        const res = await fetch("/mic", {
+          method: "POST",
+          body: formData
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("[ERROR] 서버 응답 실패:", res.status, text);
+          alert("서버 오류 발생: " + res.status);
+          return;
+        }
+
+        console.log("[DEBUG] 서버 응답 상태:", res.status);
+
+        const data = await res.json();
+        console.log("[DEBUG] 서버 응답 데이터:", data);
+
+        document.getElementById("chat").innerHTML += `
+          <p><b>Q:</b> ${data.question}</p>
+          <p><b>A:</b> ${data.answer}</p>
+        `;
+
+        if (data.tts_url) {
+          console.log("[DEBUG] TTS 파일 URL:", data.tts_url);
+          const audio = new Audio(data.tts_url);
+          audio.play();
+        }
+      } catch (err) {
+        console.error("[ERROR] /mic 요청 실패:", err);
+      }
+    };
+
+    document.getElementById("micIcon").src = "/static/img/icons/mic-off.png";
+    isRecording = true;
+    console.log("[DEBUG] 상태 변경 → isRecording =", isRecording);
+  } else {
+    mediaRecorder.stop();
+    document.getElementById("micIcon").src = "/static/img/icons/mic-on.png";
+    isRecording = false;
+    console.log("[DEBUG] 마이크 중지 요청 → isRecording =", isRecording);
+  }
+}
 
   // 채팅 메시지 추가 함수
   function addChatMessage(message, isUser = false) {
@@ -176,51 +252,9 @@
     }
   });
 
-  async function sendLectureCommand(command) {
-  try {
-    const payload = {
-      question: command,             // 🔑 /prev 또는 /next
-      session_id: "web-session-001",
-      doc_id: "current_doc",
-      persona: "{{ teacher_key }}",
-      want_tts: true
-    };
-
-    const res = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-
-    if (!res.ok) throw new Error("서버 오류: " + res.statusText);
-
-    const data = await res.json();
-
-    // LLM 답변 출력
-    addChatMessage(data.answer, false);
-
-    // 🔔 현재 페이지 알림
-    if (data.used_refs && data.used_refs.length > 0) {
-      const pageInfo = data.used_refs.find(r => r.type === "page");
-      if (pageInfo) {
-        alert(`현재 페이지: ${pageInfo.page}`);
-      }
-    }
-
-    // 오디오 재생
-    if (data.audio_url) {
-      if (currentAudio) currentAudio.pause();
-      currentAudio = new Audio(data.audio_url);
-      currentAudio.muted = isMuted;
-      currentAudio.play();
-      isPlaying = true;
-      document.getElementById("playIcon").src = "/static/img/icons/pause.png";
-    }
-
-  } catch (err) {
-    console.error(err);
-    addChatMessage("❗ 오류 발생: " + err.message, false);
-  }
+async function sendLectureCommand(command) {
+  // /next, /prev, /goto 같은 명령을 그대로 sendMessage()로 전달
+  await sendMessage(command);
 }
 
 
@@ -237,43 +271,7 @@
   }
 // 첫 번째 페이지 재생
 async function playFirstPageAudio() {
-  try {
-    const response = await fetch("/chat", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        question: "/teach",      // 서버가 기대하는 필드
-        session_id: "web-session-001",  // 세션 ID (실제는 uuid 추천)
-        persona: "{{ teacher_key }}",  // 선택한 강사 key
-        want_tts: true           // 오디오 생성 요청
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error("서버 응답 실패");
-    }
-
-    const data = await response.json();
-
-    if (data.audio_url) {
-      currentAudio = new Audio(data.audio_url);
-
-      // 재생이 끝나면 상태 초기화
-      currentAudio.addEventListener("ended", () => {
-        isPlaying = false;
-        document.getElementById("playIcon").src = "/static/img/icons/play.png";
-      });
-
-      await currentAudio.play();
-      isPlaying = true;
-      document.getElementById("playIcon").src = "/static/img/icons/pause.png";
-    } else {
-      alert("오디오가 생성되지 않았습니다.\n답변: " + data.answer);
-    }
-  } catch (err) {
-    console.error("첫 페이지 오디오 재생 실패:", err);
-    alert("첫 페이지 오디오를 불러올 수 없습니다.");
-  }
+  await sendMessage("/teach");
 }
 
 // 재생/일시정지
@@ -317,10 +315,13 @@ function toggleMute() {
   }
 
   // 메시지 전송
-  async function sendMessage() {
+  // 메시지를 인자로 받도록 수정
+async function sendMessage(message = null) {
   const input = document.getElementById("chatInput");
-  const message = input.value.trim();
-  if (!message) return;
+  if (!message) {
+    message = input.value.trim();
+    if (!message) return;
+  }
 
   // 화면에 유저 메시지 표시
   addChatMessage(message, true);
@@ -332,7 +333,7 @@ function toggleMute() {
       session_id: "web-session-001",
       doc_id: "current_doc",
       persona: "{{ teacher_key }}",
-      want_tts: true  // 🔑 음성 응답 요청
+      want_tts: true
     };
 
     const res = await fetch("/chat", {
@@ -347,7 +348,7 @@ function toggleMute() {
     // 답변 표시
     addChatMessage(data.answer, false);
 
-    // 오디오 URL 있으면 오디오 객체 준비
+    // 오디오 URL 있으면 재생
     if (data.audio_url) {
       if (currentAudio) {
         currentAudio.pause();
@@ -358,7 +359,7 @@ function toggleMute() {
         isPlaying = false;
         document.getElementById("playIcon").src = "/static/img/icons/play.png";
       };
-      currentAudio.play();
+      await currentAudio.play();
       isPlaying = true;
       document.getElementById("playIcon").src = "/static/img/icons/pause.png";
     }
@@ -444,8 +445,8 @@ function handleFileUpload(file) {
     .then((data) => {
       isUploaded = true;
       uploadStatus.textContent =
-        `${file.name} 업로드 완료 ✅ ` +
-        `(타입: ${data.ext}, 페이지/세그먼트: ${data.pages}, 청크: ${data.chunks})`;
+        `${file.name} 업로드 완료 `
+        
     })
     .catch((err) => {
       uploadStatus.textContent = "업로드 실패 ❌ " + err;
