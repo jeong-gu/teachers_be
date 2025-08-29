@@ -32,20 +32,27 @@
 
   <script>
     let pdfUploaded = false;
-    const API = "http://localhost:8000";  // 서버 주소
+    const API = "http://teachers.p-e.kr:8000";  // 서버 주소
     let docId = null;
     const sessionId = "demo-session";
 
     // PDF 업로드
     document.getElementById("upload-form").addEventListener("submit", async (e) => {
       e.preventDefault();
+      const uploadResult = document.getElementById("upload-result");
+      uploadResult.innerText = " 업로드 중입니다... 잠시만 기다려주세요.";
+
       const formData = new FormData(e.target);
-      const res = await fetch(`${API}/ingest/pdf`, { method: "POST", body: formData });
-      const data = await res.json();
-      document.getElementById("upload-result").innerText = JSON.stringify(data);
-      if (data.doc_id) docId = data.doc_id;
-      if (data.message) {
-        pdfUploaded = true;   //   업로드 완료 표시
+      try {
+        const res = await fetch(`${API}/ingest/pdf`, { method: "POST", body: formData });
+        const data = await res.json();
+        uploadResult.innerText = JSON.stringify(data, null, 2); // 결과 보기 좋게
+        if (data.doc_id) docId = data.doc_id;
+        if (data.message) {
+          pdfUploaded = true;   // 업로드 완료 표시
+        }
+      } catch (err) {
+        uploadResult.innerText = " 업로드 실패: " + err;
       }
     });
 
