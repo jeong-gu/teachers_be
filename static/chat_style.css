@@ -1,0 +1,495 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: white;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  background: linear-gradient(135deg, #a8b8ff 0%, #c8a8ff 100%);
+  text-align: center;
+  padding: 30px 20px;
+  color: white;
+  font-size: 24px;
+  font-weight: 500;
+  margin-bottom: 20px;
+}
+
+.header-title {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 24px;
+  font-weight: 500;
+  text-align: center;
+  width: 100%;
+  outline: none;
+}
+
+.header-title::placeholder {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.main-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 20px;
+  position: relative;
+}
+
+.chat-view {
+  display: none;
+  flex-direction: column;
+  width: 100%;
+  max-width: 600px;
+  height: calc(100vh - 200px);
+  background: white;
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 30px;
+}
+
+.chat-view.show {
+  display: flex;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.message {
+  max-width: 70%;
+  padding: 12px 18px;
+  border-radius: 20px;
+  word-wrap: break-word;
+}
+
+.message.ai {
+  background: #f0f0f0;
+  align-self: flex-start;
+  border-bottom-left-radius: 5px;
+}
+
+.message.user {
+  background: #9b59b6;
+  color: white;
+  align-self: flex-end;
+  border-bottom-right-radius: 5px;
+}
+
+.message-time {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 5px;
+}
+
+.lecture-view {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+.lecture-view.hide {
+  display: none;
+}
+
+.instructor-card {
+  background: white;
+  border-radius: 20px;
+  padding: 30px;
+  margin-bottom: 30px;
+  text-align: center;
+  min-width: 350px;
+}
+
+.instructor-name {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.instructor-tags {
+  margin-bottom: 30px;
+}
+
+.tag {
+  display: inline-block;
+  background: #f0f0f0;
+  color: #666;
+  padding: 6px 12px;
+  border-radius: 15px;
+  font-size: 14px;
+  margin: 0 5px;
+}
+
+.instructor-photo {
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin: 0 auto 30px;
+  cursor: pointer;
+  display: block;
+}
+
+.instructor-select {
+  background: #e8e8e8;
+  border: 2px dashed #ccc;
+  border-radius: 50%;
+  width: 150px;
+  height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.instructor-select:hover {
+  background: #ddd;
+  border-color: #999;
+}
+
+.controls {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 30px;
+  justify-content: center;
+}
+
+.control-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: none;
+  background: white;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  transition: all 0.3s ease;
+}
+.control-btn img {
+  width: 28px; /* 버튼 크기에 맞게 조절 */
+  height: 28px;
+  object-fit: contain; /* 이미지 비율을 유지하면서 채우기 */
+}
+
+.control-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.file-upload-area {
+  background: rgba(248, 248, 248, 0.9);
+  border: 2px dashed #ccc;
+  border-radius: 15px;
+  padding: 40px;
+  text-align: center;
+  margin-bottom: 30px;
+  width: 100%;
+  max-width: 600px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.file-upload-area:hover {
+  background: #f0f0f0;
+  border-color: #999;
+}
+
+.file-upload-area.dragover {
+  border-color: #a8b8ff;
+  background: rgba(168, 184, 255, 0.1);
+}
+
+.upload-icon {
+  font-size: 48px;
+  color: #ccc;
+  margin-bottom: 15px;
+}
+
+.upload-text {
+  color: #666;
+  font-size: 16px;
+}
+
+.chat-preview {
+  position: fixed;
+  bottom: 120px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 15px 25px;
+  border-radius: 25px;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+.chat-preview.show {
+  opacity: 1;
+}
+
+.chat-input-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 30px;
+  padding: 10px 20px;
+  box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+  width: 90%;
+  max-width: 500px;
+}
+
+.chat-actions {
+  position: fixed;
+  bottom: 20px;
+  left: calc(50% + 260px);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  padding: 10px 15px;
+  border-radius: 20px;
+  background: transparent;
+  font-size: 16px;
+}
+
+.chat-input::placeholder {
+  color: #999;
+}
+
+.send-btn,
+.chat-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #9b59b6;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.send-btn:hover,
+.chat-btn:hover {
+  background: #8e44ad;
+  transform: scale(1.05);
+}
+
+.chat-popup {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 400px;
+  height: 600px;
+  background: white;
+  border-radius: 20px 20px 0 0;
+  box-shadow: -5px 0 25px rgba(0, 0, 0, 0.2);
+  display: none;
+  flex-direction: column;
+  z-index: 2000;
+}
+
+.chat-popup.show {
+  display: flex;
+}
+
+.chat-header {
+  padding: 20px;
+  text-align: center;
+  border-bottom: 1px solid #eee;
+  position: relative;
+}
+
+.chat-title {
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.close-btn {
+  position: absolute;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.chat-content {
+  flex: 1;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-bubble {
+  background: #9b59b6;
+  color: white;
+  padding: 15px 25px;
+  border-radius: 25px;
+  font-size: 16px;
+}
+
+.chat-footer {
+  padding: 20px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.instructor-options {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 20px;
+  padding: 30px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  display: none;
+  z-index: 3000;
+  min-width: 300px;
+}
+
+.instructor-options.show {
+  display: block;
+}
+
+.instructor-option {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: background 0.3s ease;
+}
+
+.instructor-option:hover {
+  background: #f5f5f5;
+}
+
+.instructor-option img {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 15px;
+}
+
+.instructor-info h3 {
+  margin-bottom: 5px;
+}
+
+.instructor-info p {
+  color: #666;
+  font-size: 14px;
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: none;
+  z-index: 2500;
+}
+
+.overlay.show {
+  display: block;
+}
+.page-jump {
+  position: fixed;
+  bottom: 80px; /* chat-input-container(20px) 위쪽에 띄우기 */
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 20px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  z-index: 1500; /* 입력창보다 위에 오도록 */
+}
+#page-jump-btn {
+  background-color: #9b59b6; /* 전송 버튼과 동일한 테마 색상 */
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px; /* 전체적인 디자인과 통일감을 주는 둥근 모서리 */
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out; /* 부드러운 전환 효과 */
+}
+
+/* 마우스를 올렸을 때의 스타일 (Hover) */
+#page-jump-btn:hover {
+  background-color: #8e44ad; /* 살짝 더 어두운 색상 */
+  transform: translateY(-2px); /* 살짝 위로 떠오르는 효과 */
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* 클릭했을 때의 스타일 (Active) */
+#page-jump-btn:active {
+  transform: translateY(0);
+  background-color: #803b9b;
+}
+
+@media (max-width: 768px) {
+  .chat-actions {
+    left: calc(50% + 200px);
+  }
+
+  .instructor-card {
+    min-width: auto;
+    width: 100%;
+    max-width: 350px;
+  }
+
+  .chat-input-container {
+    max-width: calc(100% - 120px);
+  }
+}
