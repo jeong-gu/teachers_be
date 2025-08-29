@@ -263,8 +263,8 @@ def build_qa_prompt(P: Dict[str, str]) -> ChatPromptTemplate:
 - 🔥 "**핵심**:" 같은 강조하는 강조하는 멘트를 사용하지마.
     (예:"**중요**: 기타.." ❌,
         "**강조**: 기타.." ❌,
-         "**스포츠 비유**: 개념 스키마가 팀 전략이라면, 내부 스키마는 실제 경기장에서 선수들의 포지션 배치와 움직임 방식이에요." ❌,
-         "스포츠 비유를 해보자면 개념 스키마가 팀 전략이라면, 내부 스키마는 실제 경기장에서 선수들의 포지션 배치와 움직임 방식이에요." ✅
+         "**소프트웨어 비유**: 개념 스키마는 프로그램의 전체 아키텍처 다이어그램입니다." ❌,
+         "소프트웨어 비유를 해볼게요. 개념 스키마는 프로그램의 전체 아키텍처 다이어그램입니다." ✅
          )
 - "**문장**"로 강조하는 멘트 사용하지마.
 강의 본문 출력이 끝나면 반드시 아래 형식의 최종 검토를 덧붙여:
@@ -304,9 +304,9 @@ def build_lecture_prompt(P: Dict[str, str]) -> ChatPromptTemplate:
 - 🔥 "**핵심**:" 같은 강조하는 강조하는 멘트를 사용하지마.
     (예:"**중요**: 기타.." ❌,
         "**강조**: 기타.." ❌,
-        "**스포츠 비유**: 개념 스키마가 팀 전략이라면, 내부 스키마는 실제 경기장에서 선수들의 포지션 배치와 움직임 방식이에요." ❌,
-        "스포츠 비유를 해보자면 개념 스키마가 팀 전략이라면, 내부 스키마는 실제 경기장에서 선수들의 포지션 배치와 움직임 방식이에요." ✅
-        )
+         "**소프트웨어 비유**: 개념 스키마는 프로그램의 전체 아키텍처 다이어그램입니다." ❌,
+         "소프트웨어 비유를 해볼게요. 개념 스키마는 프로그램의 전체 아키텍처 다이어그램입니다." ✅
+         )
 - **로 강조하는 멘트 사용하지마.
 
 강의 본문 출력이 끝나면 반드시 아래 형식의 최종 검토를 덧붙여:
@@ -504,27 +504,336 @@ async def chat(request: Request, teacher: str):
 # =========================
 # 12) PDF Ingest → FAISS + Units
 # =========================
-@app.post("/ingest/pdf")
-async def ingest_pdf_api(file: UploadFile = File(...)):
-    pdf_path = os.path.join(UPLOAD_DIR, file.filename)
-    with open(pdf_path, "wb") as f:
+from fastapi import FastAPI, UploadFile, File
+from pathlib import Path
+import shutil, os
+from typing import List
+import re
+from langchain.schema import Document
+import uuid
+
+# ============================
+# 1) CLOVA 세그멘테이션 사용 여부
+# ============================
+USE_CLOVA_SEG = os.getenv("USE_CLOVA_SEGMENTATION", "0") == "1"
+
+# ============================
+# 2) CLOVA 세그멘테이션 (Stream API)
+# ============================
+def segment_text_clova_auto(
+    text: str,
+    api_key: str = os.getenv("CLOVASTUDIO_API_KEY", ""),
+    apigw_key: str = os.getenv("NCP_CLOVA_KEY", ""),
+    app_id: str = os.getenv("CLOVASTUDIO_APP_ID", ""),
+    stage: str = os.getenv("CLOVASTUDIO_STAGE", "testapp"),
+    mode: str = os.getenv("CLOVASTUDIO_SEG_MODE", "auto"),
+) -> List[str]:
+    """ CLOVA Segmentation API (stream → apigw fallback) """
+    url = "https://clovastudio.stream.ntruss.com/v1/api-tools/segmentation"
+    headers = {
+        "Content-Type": "application/json; charset=utf-8",
+        "Authorization": f"Bearer {api_key}",
+        "X-NCP-CLOVASTUDIO-REQUEST-ID": str(uuid.uuid4()),
+    }
+    payload = {"text": text, "postProcess": True}
+    try:
+        r = requests.post(url, headers=headers, json=payload, timeout=30)
+        r.raise_for_status()
+        data = r.json()
+        segs = data.get("result", {}).get("segments", [])
+        return [s.get("text", "").strip() for s in segs if isinstance(s, dict)]
+    except Exception as e:
+        print(f"[WARN] CLOVA 세그멘테이션 실패 → 로컬 분할로 대체: {e}")
+        return segment_text_local(text)
+
+# ============================
+# 3) 로컬 세그멘테이션
+# ============================
+def segment_text_local(
+    text: str, target_len: int = 600, min_len: int = 250, max_len: int = 1200
+) -> List[str]:
+    """ 문단 단위 분할 + 문장 단위 세분화 """
+    t = re.sub(r"\r\n?", "\n", text)
+    paras = [p.strip() for p in re.split(r"\n\s*\n+", t) if p.strip()]
+
+    def split_sents(block: str) -> List[str]:
+        return [s.strip() for s in re.split(r'(?<=[.?!…]|[가-힣]\))\s+', block) if s.strip()]
+
+    expanded: List[str] = []
+    for p in paras:
+        if len(p) <= max_len:
+            expanded.append(p)
+        else:
+            sents = split_sents(p)
+            cur, cur_len = [], 0
+            for s in sents:
+                if cur_len + len(s) + 1 > target_len and cur:
+                    expanded.append(" ".join(cur))
+                    cur, cur_len = [], 0
+                cur.append(s)
+                cur_len += len(s) + 1
+            if cur:
+                expanded.append(" ".join(cur))
+
+    out, cur, cur_len = [], [], 0
+    for blk in (expanded or paras):
+        if cur_len and cur_len + len(blk) < min_len:
+            cur.append(blk)
+            cur_len += len(blk) + 1
+            continue
+        if cur:
+            out.append(" ".join(cur))
+            cur, cur_len = [], 0
+        if len(blk) < min_len:
+            cur, cur_len = [blk], len(blk)
+        else:
+            out.append(blk)
+    if cur:
+        out.append(" ".join(cur))
+    return out
+
+# ============================
+# 4) STT (임시 버전)
+# ============================
+import os
+import requests
+import numpy as np
+import soundfile as sf
+from pathlib import Path
+from typing import List
+
+# === 리샘플링 / WAV 유틸 ===
+def _resample_to_16k_mono(audio: np.ndarray, sr: int, target_sr: int = 16000) -> np.ndarray:
+    """간단한 선형보간 리샘플링. stereo면 mono 변환."""
+    if audio.ndim > 1:
+        audio = audio.mean(axis=1)
+    if sr == target_sr:
+        return audio.astype(np.float32)
+    n_src = len(audio)
+    n_tgt = int(round(n_src * target_sr / sr))
+    if n_tgt <= 1:
+        return audio.astype(np.float32)
+    x_old = np.linspace(0.0, 1.0, num=n_src, endpoint=True)
+    x_new = np.linspace(0.0, 1.0, num=n_tgt, endpoint=True)
+    resampled = np.interp(x_new, x_old, audio.astype(np.float32))
+    return resampled.astype(np.float32)
+
+def _write_pcm16_wav(path: str, audio: np.ndarray, sr: int = 16000):
+    sf.write(path, audio, sr, subtype="PCM_16")
+
+def _split_wav_by_seconds(src_path: str, chunk_seconds: int = 55) -> List[str]:
+    """길면 초 단위로 잘라 여러 파일 경로 반환."""
+    audio, sr = sf.read(src_path, always_2d=False)
+    audio = audio if isinstance(audio, np.ndarray) else np.array(audio)
+    audio = _resample_to_16k_mono(audio, sr, target_sr=16000)
+    frames = len(audio)
+    hop = int(chunk_seconds * 16000)
+    out_paths: List[str] = []
+    base = Path(src_path)
+    for i, start in enumerate(range(0, frames, hop)):
+        seg = audio[start:start+hop]
+        if len(seg) == 0:
+            continue
+        out_p = str(base.with_name(f"{base.stem}_part{i+1}.wav"))
+        _write_pcm16_wav(out_p, seg, 16000)
+        out_paths.append(out_p)
+    return out_paths
+
+# === CSR 단일 호출 ===
+STT_ENDPOINT = "https://naveropenapi.apigw.ntruss.com/recog/v1/stt"
+
+def _stt_call_single_wav(wav_path: str, key_id: str, key_secret: str, lang: str = "Kor") -> str:
+    """CSR 구버전 API에 단일 WAV(PCM16/16k/mono)를 전송하고 텍스트 반환."""
+    headers = {
+        "X-NCP-APIGW-API-KEY-ID": key_id,
+        "X-NCP-APIGW-API-KEY": key_secret,
+        "Content-Type": "application/octet-stream",
+    }
+    params = {"lang": lang}  # Kor, Eng, Jpn, Chn
+    with open(wav_path, "rb") as f:
+        data = f.read()
+    resp = requests.post(STT_ENDPOINT, headers=headers, params=params, data=data, timeout=120)
+    if resp.status_code != 200:
+        raise RuntimeError(f"STT 실패: {resp.status_code} {resp.text}")
+    try:
+        js = resp.json()
+        return js.get("text", "") or resp.text
+    except Exception:
+        return resp.text
+
+# === CSR 멀티 청크 호출 ===
+def stt_transcribe_wav_to_text(wav_path: str, lang: str = "Kor") -> str:
+    """CSR API 호출해서 wav 파일을 텍스트로 변환 (디버그 버전: 원본 응답 출력)"""
+    NCP_KEY_ID = os.getenv("NCP_CLOVA_KEY_ID")
+    NCP_KEY = os.getenv("NCP_CLOVA_KEY")
+
+    if not (NCP_KEY_ID and NCP_KEY):
+        raise RuntimeError("❗ NCP_CLOVA_KEY_ID / NCP_CLOVA_KEY 환경변수가 필요합니다")
+
+    parts = _split_wav_by_seconds(wav_path, chunk_seconds=55)
+    if not parts:
+        audio, sr = sf.read(wav_path, always_2d=False)
+        audio = _resample_to_16k_mono(np.array(audio), sr, target_sr=16000)
+        tmp = str(Path(wav_path).with_name(f"{Path(wav_path).stem}_16k.wav"))
+        _write_pcm16_wav(tmp, audio, 16000)
+        parts = [tmp]
+
+    texts: List[str] = []
+    for i, p in enumerate(parts, 1):
+        try:
+            print(f"[STT] part {i}/{len(parts)}: {Path(p).name}")
+            headers = {
+                "X-NCP-APIGW-API-KEY-ID": NCP_KEY_ID,
+                "X-NCP-APIGW-API-KEY": NCP_KEY,
+                "Content-Type": "application/octet-stream",
+            }
+            params = {"lang": lang}
+            with open(p, "rb") as f:
+                resp = requests.post(STT_ENDPOINT, headers=headers, params=params, data=f.read(), timeout=120)
+
+            print(f"[DEBUG] CSR 응답 원문 (status {resp.status_code}): {resp.text}")
+
+            if resp.status_code != 200:
+                continue
+
+            try:
+                data = resp.json()
+            except Exception as e:
+                print("[WARN] JSON 파싱 실패:", e)
+                continue
+
+            text = data.get("text", "").strip()
+            if not text and "result" in data:
+                text = " ".join([seg.get("text","") for seg in data["result"]]).strip()
+
+            if text:
+                texts.append(text)
+
+        except Exception as e:
+            print(f"[WARN] STT part {i} 오류: {e}")
+
+    full = " ".join([t for t in texts if t])
+    print(f"[INFO] STT 전체 변환 결과 길이: {len(full)}자")
+    return full.strip()
+
+
+# === TXT 처리 ===
+def load_txt_as_documents(txt_path: str) -> List[Document]:
+    text = Path(txt_path).read_text(encoding="utf-8", errors="ignore")
+    # CLOVA 세그멘테이션 사용 여부
+    if USE_CLOVA_SEG:
+        try:
+            segments = segment_text_clova_auto(
+                text,
+                api_key=api_key,
+                apigw_key=NCP_KEY,
+                app_id=CLOVA_APP_ID,
+                stage=CLOVA_STAGE,
+                mode=os.getenv("CLOVASTUDIO_SEG_MODE", "auto"),
+            )
+        except Exception as e:
+            print(f"[WARN] 세그멘테이션 실패 → 로컬 분할로 대체: {e}")
+            segments = segment_text_local(text)
+    else:
+        segments = segment_text_local(text)
+
+    docs: List[Document] = []
+    for i, seg in enumerate(segments):
+        docs.append(
+            Document(page_content=seg, metadata={"source": Path(txt_path).name, "page": i})
+        )
+    return docs
+
+# === WAV 처리 (STT → 세그멘테이션) ===
+CSR_LANG = os.getenv("CSR_LANG", "Kor")  # 한국어 기본값
+def load_wav_as_documents(wav_path: str) -> List[Document]:
+    print(f"[INFO] WAV 업로드: {wav_path}")
+    transcript = stt_transcribe_wav_to_text(wav_path, lang=CSR_LANG)
+    if not transcript:
+        raise RuntimeError("STT 결과가 비었습니다.")
+
+    if USE_CLOVA_SEG:
+        try:
+            segments = segment_text_clova_auto(
+                transcript,
+                api_key=api_key,
+                apigw_key=NCP_KEY,
+                app_id=CLOVA_APP_ID,
+                stage=CLOVA_STAGE,
+                mode=os.getenv("CLOVASTUDIO_SEG_MODE", "auto"),
+            )
+        except Exception as e:
+            print(f"[WARN] 세그멘테이션 실패 → 로컬 분할로 대체: {e}")
+            segments = segment_text_local(transcript)
+    else:
+        segments = segment_text_local(transcript)
+
+    docs: List[Document] = []
+    for i, seg in enumerate(segments):
+        docs.append(
+            Document(page_content=seg, metadata={"source": Path(wav_path).name, "page": i})
+        )
+    return docs
+
+# === 청크 분할 ===
+def build_chunks_from_documents(
+    documents: List[Document],
+    min_chars: int = 5,
+    chunk_size: int = 400,
+    chunk_overlap: int = 80,
+) -> List[Document]:
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", " ", ""],
+    )
+
+    chunks = [
+        d for d in splitter.split_documents(documents)
+        if len(d.page_content.strip()) >= min_chars
+    ]
+
+    if not chunks:
+        chunks = [
+            Document(page_content=d.page_content.strip(), metadata=d.metadata)
+            for d in documents
+            if len(d.page_content.strip()) >= min_chars
+        ]
+
+    if not chunks:
+        merged = "\n".join(d.page_content for d in documents).strip()
+        if merged:
+            src = documents[0].metadata.get("source", "input")
+            chunks = [Document(page_content=merged, metadata={"source": src, "page": 0})]
+        else:
+            raise ValueError("입력 텍스트가 비어 있습니다.")
+
+    return chunks
+@app.post("/ingest")
+async def ingest_api(file: UploadFile = File(...)):
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    with open(file_path, "wb") as f:
         f.write(await file.read())
 
-    loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
+    ext = Path(file.filename).suffix.lower()
+    if ext == ".pdf":
+        loader = PyPDFLoader(file_path)
+        documents = loader.load()
+    elif ext == ".txt":
+        documents = load_txt_as_documents(file_path)
+    elif ext == ".wav":
+        documents = load_wav_as_documents(file_path)
+    else:
+        return {"error": f"지원하지 않는 확장자: {ext}"}
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=400, chunk_overlap=80, separators=["\n\n", "\n", " ", ""]
-    )
-    chunks = [d for d in splitter.split_documents(documents) if len(d.page_content.strip()) >= 20]
+    chunks = build_chunks_from_documents(documents, chunk_size=400, chunk_overlap=80)
 
-    doc_id = "current_doc"
+    doc_id = "current_doc"  # 세션마다 다르게 하고 싶으면 uuid 붙이기
     shutil.rmtree(_vs_path(doc_id), ignore_errors=True)
     os.makedirs(_vs_path(doc_id), exist_ok=True)
 
-    # === 임베딩 확인 부분 추가 ===
-    sample_text = chunks[0].page_content[:200]  # 첫 청크 앞 200자만 확인
-    sample_vector = embeddings.embed_query(sample_text)  # 1차원 list[float]
+    sample_text = chunks[0].page_content[:200]
+    sample_vector = embeddings.embed_query(sample_text)
 
     vs = FAISS.from_documents(chunks, embedding=embeddings)
     persist_faiss(vs, doc_id)
@@ -533,13 +842,14 @@ async def ingest_pdf_api(file: UploadFile = File(...)):
 
     return {
         "doc_id": doc_id,
+        "ext": ext,
         "pages": len(documents),
         "chunks": len(chunks),
         "sample_text": sample_text,
         "sample_vector_dim": len(sample_vector),
-        "sample_vector": sample_vector[:10],  # 앞 10차원만 확인
-        "message": "PDF 업로드 및 벡터 저장 완료"
+        "message": f"{ext.upper()} 업로드 및 벡터 저장 완료"
     }
+
 
 
 # =========================
@@ -651,6 +961,13 @@ async def chat_api(req: ChatReq):
     # ===== Q&A (RetrievalQA) =====
     try:
         chain = build_qa_chain(P, vectorstore)
+        docs = vectorstore.similarity_search(raw, k=3)
+        if not docs:  # 관련 문서가 아예 없으면
+            db.close()
+            return ChatResp(
+                answer="❗ 업로드한 자료 안에 이 질문과 관련된 내용이 없습니다.",
+                used_refs=[]
+            )
         res = chain({"query": raw})
 
         # [FIX] LangChain 버전 호환: result / output_text / answer 모두 대응

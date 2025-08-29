@@ -71,7 +71,7 @@
     <div class="chat-preview" id="chatPreview"></div>
 
     <!-- 페이지 이동 입력칸 -->
-    <div class="page-jump">
+    <!-- <div class="page-jump">
       <input
         type="number"
         id="page-number"
@@ -80,7 +80,7 @@
         style="width: 100px; padding: 5px; border: none"
       />
       <button id="page-jump-btn" onclick="jumpToPage()">이동</button>
-    </div>
+    </div> -->
 
     <!-- 입력창 -->
     <div style="position: relative; width: 100%">
@@ -398,57 +398,59 @@ function toggleMute() {
   }
 
   // 파일 업로드
-  const fileUploadArea = document.getElementById("fileUploadArea");
-  const uploadStatus = document.getElementById("uploadStatus");
+const fileUploadArea = document.getElementById("fileUploadArea");
+const uploadStatus = document.getElementById("uploadStatus");
 
-  fileUploadArea.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    fileUploadArea.classList.add("dragover");
-  });
+fileUploadArea.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  fileUploadArea.classList.add("dragover");
+});
 
-  fileUploadArea.addEventListener("dragleave", () => {
-    fileUploadArea.classList.remove("dragover");
-  });
+fileUploadArea.addEventListener("dragleave", () => {
+  fileUploadArea.classList.remove("dragover");
+});
 
-  fileUploadArea.addEventListener("drop", (e) => {
-    e.preventDefault();
-    fileUploadArea.classList.remove("dragover");
-    if (e.dataTransfer.files.length > 0) {
-      handleFileUpload(e.dataTransfer.files[0]);
-    }
-  });
-
-  fileUploadArea.addEventListener("click", () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "application/pdf";
-    input.onchange = (e) => {
-      if (e.target.files.length > 0) {
-        handleFileUpload(e.target.files[0]);
-      }
-    };
-    input.click();
-  });
-
-  function handleFileUpload(file) {
-    // 업로드 창 숨기고 상태 메시지 보여줌
-    fileUploadArea.style.display = "none";
-    uploadStatus.style.display = "block";
-    uploadStatus.textContent = "처리중입니다... 잠시만 기다려주세요";
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    fetch("/ingest/pdf", { method: "POST", body: formData })
-      .then((res) => res.json())
-      .then((data) => {
-        isUploaded = true;  
-        uploadStatus.textContent = `업로드가 완료되었습니다. 페이지: ${data.pages}, 청크: ${data.chunks}`;
-      })
-      .catch((err) => {
-        uploadStatus.textContent = "업로드 실패 " + err;
-      });
+fileUploadArea.addEventListener("drop", (e) => {
+  e.preventDefault();
+  fileUploadArea.classList.remove("dragover");
+  if (e.dataTransfer.files.length > 0) {
+    handleFileUpload(e.dataTransfer.files[0]);
   }
+});
+
+fileUploadArea.addEventListener("click", () => {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = ".pdf,.txt,.wav"; // pdf, txt, wav 허용
+  input.onchange = (e) => {
+    if (e.target.files.length > 0) {
+      handleFileUpload(e.target.files[0]);
+    }
+  };
+  input.click();
+});
+
+function handleFileUpload(file) {
+  // 업로드 창 숨기고 상태 메시지 보여줌
+  fileUploadArea.style.display = "none";
+  uploadStatus.style.display = "block";
+  uploadStatus.textContent = "처리중입니다... 잠시만 기다려주세요";
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  fetch("/ingest", { method: "POST", body: formData })
+    .then((res) => res.json())
+    .then((data) => {
+      isUploaded = true;
+      uploadStatus.textContent =
+        `${file.name} 업로드 완료 ✅ ` +
+        `(타입: ${data.ext}, 페이지/세그먼트: ${data.pages}, 청크: ${data.chunks})`;
+    })
+    .catch((err) => {
+      uploadStatus.textContent = "업로드 실패 ❌ " + err;
+    });
+}
 
   // 엔터 입력
   document.getElementById("chatInput").addEventListener("keypress", (e) => {

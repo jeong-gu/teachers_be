@@ -8,7 +8,7 @@ pydantic
 requests 
 faiss-cpu
 pillow
-
+soundfile
 pdf2image
 langchain
 chromadb
