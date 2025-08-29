@@ -1,0 +1,22 @@
+fastapi 
+uvicorn[standard]
+langchain-naver
+langchain-community
+python-dotenv 
+sqlalchemy 
+pydantic 
+requests 
+faiss-cpu
+pillow
+
+pdf2image
+langchain
+chromadb
+pydantic-settings
+# Naver LLM/Embedding용 (사용 중이면)
+python-multipart
+jinja2
+pypdf>=4.0.0
+# 선택적 TTS
+gTTS
+pyttsx3
