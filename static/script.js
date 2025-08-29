@@ -1,6 +1,11 @@
 let currentAudio = null;
 let currentIcon = null;
 
+function selectTeacher(name, photo) {
+    localStorage.setItem("selectedTeacher", JSON.stringify({ name, photo }));
+    window.location.href = "chat.html"; // chat.html로 이동
+}
+
 // 음성 아이콘 클릭 이벤트 리스너
 document.querySelectorAll('.voice-icon').forEach(icon => {
     icon.addEventListener('click', function(e) {
