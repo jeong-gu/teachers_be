@@ -1,106 +1,188 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <title>RAG TeachKit Demo</title>
-  <style>
-    body { font-family: sans-serif; margin: 20px; }
-    #chat-box { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; margin-bottom: 10px; }
-    .msg-user { color: blue; margin: 5px 0; }
-    .msg-bot { color: green; margin: 5px 0; }
-    audio { width: 100%; margin-top: 5px; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="/static/style.css">
+    <title>Teachers</title>
 </head>
 <body>
-  <h2>간단 RAG 데모</h2>
+    <div class="container">
+        <header class="header">
+            <div class="logo">Teachers</div>
+            <div class="nav-buttons">
+                <button class="nav-btn">로그인</button>
+                <button class="nav-btn">회원가입</button>
+            </div>
+        </header>
 
-  <h3>PDF 업로드</h3>
-  <form id="upload-form" enctype="multipart/form-data">
-    <input type="file" name="file" accept="application/pdf" />
-    <button type="submit">업로드</button>
-  </form>
-  <div id="upload-result"></div>
+        <section class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">
+                    개인 맞춤형 실시간 AI<br>음성 활용 학습 서비스
+                </h1>
+                <p class="hero-subtitle">
+                    Personalized real-time AI
+                    voice-based learning service
+                </p>
+            </div>
+            <div class="hero-image">
+                <!-- <img class="laptop" src="img/laptop.png"> -->
+            </div>
+        </section>
 
-  <h3>대화</h3>
-  <div id="chat-box"></div>
-  <input type="text" id="question" placeholder="질문을 입력하세요..." />
-  <button id="send-btn">보내기</button>
-  <label>
-    <input type="checkbox" id="tts-toggle" />
-    TTS로 듣기
-  </label>
+        <div class="filters">
+            <span class="filter-label">언어</span>
+            <select class="filter-dropdown">
+                <option>한국어</option>
+            </select>
+            
+            <span class="filter-label">성별</span>
+            <select class="filter-dropdown">
+                <option>남성</option>
+                <option>여성</option>
+            </select>
+        </div>
 
-  <script>
-    let pdfUploaded = false;
-    const API = "http://localhost:9000";  // 서버 주소
-    let docId = null;
-    const sessionId = "demo-session";
+        <h2 class="section-title">나와 함께할 선생님들</h2>
 
-    // PDF 업로드
-    document.getElementById("upload-form").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const uploadResult = document.getElementById("upload-result");
-      uploadResult.innerText = " 업로드 중입니다... 잠시만 기다려주세요.";
+        <div class="teachers-grid">
+            <!-- 고은 -->
+            <div class="teacher-card">
+                <div class="teacher-image">
+                    <img class="teacher-photo" src="/static/img/고은.png" alt="고은">
+                </div>
+                <div class="teacher-info">
+                    <div class="teacher-name">
+                        고은 선생님
+                        <div class="voice-icon" data-teacher="ngoeun" data-audio="/static/audio/고은.mp3"></div>
+                    </div>
+                    <div class="teacher-tags">
+                        <span class="tag">#친절함</span>
+                        <span class="tag">#따듯함</span>
+                        <span class="tag">#부드러움</span>
+                    </div>
+                    <button class="view-profile-btn" onclick="location.href='/chat?teacher=ngoeun'">
+                        강의 시작하기
+                    </button>
+                </div>
+            </div>
 
-      const formData = new FormData(e.target);
-      try {
-        const res = await fetch(`${API}/ingest/pdf`, { method: "POST", body: formData });
-        const data = await res.json();
-        uploadResult.innerText = JSON.stringify(data, null, 2); // 결과 보기 좋게
-        if (data.doc_id) docId = data.doc_id;
-        if (data.message) {
-          pdfUploaded = true;   // 업로드 완료 표시
-        }
-      } catch (err) {
-        uploadResult.innerText = " 업로드 실패: " + err;
-      }
-    });
+            <!-- 규원 -->
+            <div class="teacher-card">
+                <div class="teacher-image">
+                    <img class="teacher-photo" src="/static/img/규원.png" alt="규원">
+                </div>
+                <div class="teacher-info">
+                    <div class="teacher-name">
+                        규원 선생님
+                        <div class="voice-icon" data-teacher="nkyuwon" data-audio="/static/audio/규원.mp3"></div>
+                    </div>
+                    <div class="teacher-tags">
+                        <span class="tag">#친근함</span>
+                        <span class="tag">#편안함</span>
+                        <span class="tag">#캐주얼</span>
+                    </div>
+                    <button class="view-profile-btn" onclick="location.href='/chat?teacher=nkyuwon'">
+                        강의 시작하기
+                    </button>
+                </div>
+            </div>
 
-    // 메시지 전송
-    document.getElementById("send-btn").addEventListener("click", async () => {
-      const q = document.getElementById("question").value.trim();
-      if (!q) return;
-      
-      if (!pdfUploaded) {   //  업로드 안 된 경우
-        alert("먼저 PDF를 업로드하세요!");
-        return;
-      }
-      
-      addMessage("user", q);
-      document.getElementById("question").value = "";
+            <!-- 민정 -->
+            <div class="teacher-card">
+                <div class="teacher-image">
+                    <img class="teacher-photo" src="/static/img/민정.png" alt="민정">
+                </div>
+                <div class="teacher-info">
+                    <div class="teacher-name">
+                        민정 선생님
+                        <div class="voice-icon" data-teacher="nminjeong" data-audio="/static/audio/민정.mp3"></div>
+                    </div>
+                    <div class="teacher-tags">
+                        <span class="tag">#카리스마</span>
+                        <span class="tag">#핵심 위주</span>
+                        <span class="tag">#빠른 템포</span>
+                    </div>
+                    <button class="view-profile-btn" onclick="location.href='/chat?teacher=nminjeong'">
+                        강의 시작하기
+                    </button>
+                </div>
+            </div>
 
-      const wantTTS = document.getElementById("tts-toggle").checked;
+            <!-- 희라 -->
+            <div class="teacher-card">
+                <div class="teacher-image">
+                    <img class="teacher-photo" src="/static/img/희라.png" alt="희라">
+                </div>
+                <div class="teacher-info">
+                    <div class="teacher-name">
+                        희라 선생님
+                        <div class="voice-icon" data-teacher="nheera" data-audio="/static/audio/희라.mp3"></div>
+                    </div>
+                    <div class="teacher-tags">
+                        <span class="tag">#차분함</span>
+                        <span class="tag">#논리적</span>
+                        <span class="tag">#단계별 설명</span>
+                    </div>
+                    <button class="view-profile-btn" onclick="location.href='/chat?teacher=nheera'">
+                        강의 시작하기
+                    </button>
+                </div>
+            </div>
 
-      const res = await fetch(`${API}/chat`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          session_id: sessionId,
-          question: q,
-          want_tts: wantTTS
-        })
-      });
-      const data = await res.json();
-      addMessage("bot", data.answer, data.audio_url ? API + data.audio_url : null);
-    });
+            <!-- 태진 -->
+            <div class="teacher-card">
+                <div class="teacher-image">
+                    <img class="teacher-photo" src="/static/img/태진.png" alt="태진">
+                </div>
+                <div class="teacher-info">
+                    <div class="teacher-name">
+                        태진 선생님
+                        <div class="voice-icon" data-teacher="ntaejin" data-audio="/static/audio/태진.mp3"></div>
+                    </div>
+                    <div class="teacher-tags">
+                        <span class="tag">#열정적</span>
+                        <span class="tag">#직설적</span>
+                        <span class="tag">#동기부여</span>
+                    </div>
+                    <button class="view-profile-btn" onclick="location.href='/chat?teacher=ntaejin'">
+                        강의 시작하기
+                    </button>
+                </div>
+            </div>
 
-    function addMessage(role, text, audioUrl=null) {
-      const box = document.getElementById("chat-box");
-      const div = document.createElement("div");
-      div.className = role === "user" ? "msg-user" : "msg-bot";
-      div.textContent = (role === "user" ? "🙋 " : "🤖 ") + text;
-      box.appendChild(div);
+            <!-- 우진 -->
+            <div class="teacher-card">
+                <div class="teacher-image">
+                    <img class="teacher-photo" src="/static/img/우진.png" alt="무비">
+                </div>
+                <div class="teacher-info">
+                    <div class="teacher-name">
+                        우진 선생님
+                        <div class="voice-icon" data-teacher="nmovie" data-audio="/static/audio/우진.mp3"></div>
+                    </div>
+                    <div class="teacher-tags">
+                        <span class="tag">#신뢰</span>
+                        <span class="tag">#날카로움</span>
+                        <span class="tag">#직설적</span>
+                    </div>
+                    <button class="view-profile-btn" onclick="location.href='/chat?teacher=nwoojin'">
+                        강의 시작하기
+                    </button>
+                </div>
+            </div>
+        </div>
 
-      if (audioUrl) {
-        const audio = document.createElement("audio");
-        audio.controls = true;
-        audio.src = audioUrl;
-        div.appendChild(audio);
-        audio.play().catch(() => console.log("Autoplay blocked"));
-      }
-
-      box.scrollTop = box.scrollHeight;
-    }
-  </script>
+        <footer class="footer">
+            <div class="footer-content">
+                team : teachers<br />
+                email: rhehddnvv12@kunsan.ac.kr, haejin1303@gmail.com, jeonina76@gmail.com,
+                20223379@chosun.kr, songg9572@gmail.com<br />
+                Copyright 2025. Team teachers. All rights reserved.
+            </div>
+        </footer>
+    </div>
 </body>
+<script src="/static/script.js"></script>
 </html>

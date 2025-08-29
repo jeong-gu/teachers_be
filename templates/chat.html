@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>온라인 강의</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #a8b8ff 0%, #c8a8ff 100%);
+            text-align: center;
+            padding: 30px 20px;
+            color: white;
+            font-size: 24px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+
+        .header-title {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 24px;
+            font-weight: 500;
+            text-align: center;
+            width: 100%;
+            outline: none;
+        }
+
+        .header-title::placeholder {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0 20px;
+            position: relative;
+        }
+
+        .chat-view {
+            display: none;
+            flex-direction: column;
+            width: 100%;
+            max-width: 600px;
+            height: calc(100vh - 200px);
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .chat-view.show {
+            display: flex;
+        }
+
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 12px 18px;
+            border-radius: 20px;
+            word-wrap: break-word;
+        }
+
+        .message.ai {
+            background: #f0f0f0;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message.user {
+            background: #9b59b6;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        .lecture-view {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+
+        .lecture-view.hide {
+            display: none;
+        }
+
+        .instructor-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            min-width: 350px;
+        }
+
+        .instructor-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        .instructor-tags {
+            margin-bottom: 30px;
+        }
+
+        .tag {
+            display: inline-block;
+            background: #f0f0f0;
+            color: #666;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 14px;
+            margin: 0 5px;
+        }
+
+        .instructor-photo {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin: 0 auto 30px;
+            cursor: pointer;
+            display: block;
+        }
+
+        .instructor-select {
+            background: #e8e8e8;
+            border: 2px dashed #ccc;
+            border-radius: 50%;
+            width: 150px;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .instructor-select:hover {
+            background: #ddd;
+            border-color: #999;
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            background: white;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .file-upload-area {
+            background: rgba(248, 248, 248, 0.9);
+            border: 2px dashed #ccc;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            width: 100%;
+            max-width: 600px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .file-upload-area:hover {
+            background: #f0f0f0;
+            border-color: #999;
+        }
+
+        .file-upload-area.dragover {
+            border-color: #a8b8ff;
+            background: rgba(168, 184, 255, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            color: #ccc;
+            margin-bottom: 15px;
+        }
+
+        .upload-text {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .chat-preview {
+            position: fixed;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            opacity: 0;
+            transition: all 0.3s ease;
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .chat-preview.show {
+            opacity: 1;
+        }
+
+        .chat-input-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 30px;
+            padding: 10px 20px;
+            box-shadow: 0 5px 25px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+
+        .chat-actions {
+            position: fixed;
+            bottom: 20px;
+            left: calc(50% + 260px);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            padding: 10px 15px;
+            border-radius: 20px;
+            background: transparent;
+            font-size: 16px;
+        }
+
+        .chat-input::placeholder {
+            color: #999;
+        }
+
+        .send-btn, .chat-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: none;
+            background: #9b59b6;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover, .chat-btn:hover {
+            background: #8e44ad;
+            transform: scale(1.05);
+        }
+
+        .chat-popup {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            width: 400px;
+            height: 600px;
+            background: white;
+            border-radius: 20px 20px 0 0;
+            box-shadow: -5px 0 25px rgba(0, 0, 0, 0.2);
+            display: none;
+            flex-direction: column;
+            z-index: 2000;
+        }
+
+        .chat-popup.show {
+            display: flex;
+        }
+
+        .chat-header {
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+
+        .chat-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+
+        .close-btn {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .chat-content {
+            flex: 1;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .chat-bubble {
+            background: #9b59b6;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 25px;
+            font-size: 16px;
+        }
+
+        .chat-footer {
+            padding: 20px;
+            text-align: center;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .instructor-options {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            display: none;
+            z-index: 3000;
+            min-width: 300px;
+        }
+
+        .instructor-options.show {
+            display: block;
+        }
+
+        .instructor-option {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            border-radius: 12px;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: background 0.3s ease;
+        }
+
+        .instructor-option:hover {
+            background: #f5f5f5;
+        }
+
+        .instructor-option img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-right: 15px;
+        }
+
+        .instructor-info h3 {
+            margin-bottom: 5px;
+        }
+
+        .instructor-info p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            z-index: 2500;
+        }
+
+        .overlay.show {
+            display: block;
+        }
+
+        @media (max-width: 768px) {
+            .chat-actions {
+                left: calc(50% + 200px);
+            }
+            
+            .instructor-card {
+                min-width: auto;
+                width: 100%;
+                max-width: 350px;
+            }
+
+            .chat-input-container {
+                max-width: calc(100% - 120px);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <input type="text" class="header-title" placeholder="오늘의 강의 제목을 정해주세요." value="오늘의 강의 제목을 정해주세요.">
+    </div>
+
+    <div class="main-content">
+        <div class="lecture-view" id="lectureView">
+            <div class="instructor-card">
+                <div class="instructor-name" id="instructorName">강사를 선택하세요</div>
+                <div class="instructor-tags" id="instructorTags"></div>
+                
+                <div class="instructor-select" id="instructorPhoto" onclick="showInstructorOptions()">
+                    <span style="color: #999; font-size: 14px;">사진 선택</span>
+                </div>
+
+                <div class="controls">
+                    <button class="control-btn" onclick="togglePlay()">
+                        <span id="playIcon">▶️</span>
+                    </button>
+                    <button class="control-btn" onclick="toggleMute()">
+                        <span id="muteIcon">🎤</span>
+                    </button>
+                    <button class="control-btn" onclick="closeSession()">
+                        ✖️
+                    </button>
+                </div>
+            </div>
+
+            <div class="file-upload-area" id="fileUploadArea">
+                <div class="upload-icon">⬆️</div>
+                <div class="upload-text">파일을 여기로 드래그하거나 클릭하여 업로드</div>
+            </div>
+        </div>
+
+        <div class="chat-view" id="chatView">
+            <div class="chat-header">
+                <div class="chat-title">AI 강사와의 채팅</div>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <!-- 채팅 메시지들이 여기에 동적으로 추가됩니다 -->
+            </div>
+        </div>
+    </div>
+
+    <div class="chat-preview" id="chatPreview"></div>
+
+    <div class="chat-input-container">
+        <input type="text" class="chat-input" id="chatInput" placeholder="무엇이든 물어보세요">
+    </div>
+
+    <div class="chat-actions">
+        <button class="send-btn" onclick="sendMessage()">⬆️</button>
+        <button class="chat-btn" onclick="toggleChatView()">💬</button>
+    </div>
+
+    <!-- 채팅 팝업 -->
+    <div class="chat-popup" id="chatPopup">
+        <div class="chat-header">
+            <div class="chat-title">데이터베이스가 뭐야?</div>
+            <button class="close-btn" onclick="toggleChatPopup()">✖️</button>
+        </div>
+        <div class="chat-content">
+            <div class="chat-bubble">데이터베이스는...</div>
+        </div>
+        <div class="chat-footer">무엇이든 물어보세요</div>
+    </div>
+
+    <!-- 강사 선택 팝업 -->
+    <div class="instructor-options" id="instructorOptions">
+        <h3 style="margin-bottom: 20px;">강사를 선택하세요</h3>
+        
+        <div class="instructor-option" onclick="selectInstructor('신생님 1', ['친절', '성실', '남자', 'ISTJ'], 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face')">
+            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face" alt="강사1">
+            <div class="instructor-info">
+                <h4>신생님 1</h4>
+                <p>#친절 #성실 #남자 #ISTJ</p>
+            </div>
+        </div>
+
+        <div class="instructor-option" onclick="selectInstructor('김교수', ['전문가', '엄격', '여자', 'ENTJ'], 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face')">
+            <img src="https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face" alt="강사2">
+            <div class="instructor-info">
+                <h4>김교수</h4>
+                <p>#전문가 #엄격 #여자 #ENTJ</p>
+            </div>
+        </div>
+
+        <div class="instructor-option" onclick="selectInstructor('박선생', ['유머', '친근', '남자', 'ENFP'], 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face')">
+            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face" alt="강사3">
+            <div class="instructor-info">
+                <h4>박선생</h4>
+                <p>#유머 #친근 #남자 #ENFP</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
+
+    <script>
+        let isPlaying = false;
+        let isMuted = false;
+        let currentInstructor = null;
+        let chatMessages = [];
+
+        // 채팅 메시지 추가 함수
+        function addChatMessage(message, isUser = false) {
+            const chatMessagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user' : 'ai'}`;
+            
+            const now = new Date();
+            const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
+                             now.getMinutes().toString().padStart(2, '0');
+            
+            messageDiv.innerHTML = `
+                <div>${message}</div>
+                <div class="message-time">${timeString}</div>
+            `;
+            
+            chatMessagesContainer.appendChild(messageDiv);
+            chatMessagesContainer.scrollTop = chatMessagesContainer.scrollHeight;
+            
+            chatMessages.push({
+                message: message,
+                isUser: isUser,
+                timestamp: now
+            });
+        }
+
+        // AI 응답 시뮬레이션
+        function getAIResponse(userMessage) {
+            const responses = [
+                "좋은 질문이네요! 그것에 대해 설명해드리겠습니다.",
+                "데이터베이스는 구조화된 정보의 집합입니다.",
+                "더 자세히 알고 싶으시면 언제든 물어보세요!",
+                "이해하기 쉽게 예시를 들어 설명해드릴게요.",
+                "그 부분은 중요한 개념입니다. 차근차근 설명해드리겠습니다."
+            ];
+            
+            return responses[Math.floor(Math.random() * responses.length)];
+        }
+
+        // 강사 선택 팝업 표시
+        function showInstructorOptions() {
+            document.getElementById('instructorOptions').classList.add('show');
+            document.getElementById('overlay').classList.add('show');
+        }
+
+        // 강사 선택
+        function selectInstructor(name, tags, photo) {
+            currentInstructor = { name, tags, photo };
+            
+            document.getElementById('instructorName').textContent = name;
+            
+            const tagsContainer = document.getElementById('instructorTags');
+            tagsContainer.innerHTML = tags.map(tag => `<span class="tag">#${tag}</span>`).join('');
+            
+            const photoElement = document.getElementById('instructorPhoto');
+            photoElement.innerHTML = `<img src="${photo}" alt="${name}" class="instructor-photo">`;
+            
+            closeAllPopups();
+        }
+
+        // 재생/일시정지
+        function togglePlay() {
+            isPlaying = !isPlaying;
+            document.getElementById('playIcon').textContent = isPlaying ? '⏸️' : '▶️';
+        }
+
+        // 음소거/음소거 해제
+        function toggleMute() {
+            isMuted = !isMuted;
+            document.getElementById('muteIcon').textContent = isMuted ? '🔇' : '🎤';
+        }
+
+        // 세션 종료
+        function closeSession() {
+            if (confirm('강의를 종료하시겠습니까?')) {
+                // 페이지 새로고침 또는 종료 로직
+                location.reload();
+            }
+        }
+
+        // 메시지 전송
+        function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            
+            if (message) {
+                // 채팅 뷰가 열려있는지 확인
+                const chatView = document.getElementById('chatView');
+                if (chatView.classList.contains('show')) {
+                    // 채팅 뷰에서 메시지 추가
+                    addChatMessage(message, true);
+                    
+                    // AI 응답 시뮬레이션 (1-2초 후)
+                    setTimeout(() => {
+                        const aiResponse = getAIResponse(message);
+                        addChatMessage(aiResponse, false);
+                    }, Math.random() * 1000 + 500);
+                } else {
+                    // 강의 뷰에서는 기존 미리보기 방식
+                    showChatPreview(message);
+                }
+                
+                input.value = '';
+            }
+        }
+
+        // 채팅 미리보기 표시 (3초 후 사라짐)
+        function showChatPreview(message) {
+            const preview = document.getElementById('chatPreview');
+            preview.textContent = message;
+            preview.classList.add('show');
+            
+            setTimeout(() => {
+                preview.classList.remove('show');
+            }, 3000);
+        }
+
+        // 채팅 뷰 토글 (팝업이 아닌 뷰 전환)
+        function toggleChatView() {
+            const lectureView = document.getElementById('lectureView');
+            const chatView = document.getElementById('chatView');
+            
+            if (chatView.classList.contains('show')) {
+                chatView.classList.remove('show');
+                lectureView.classList.remove('hide');
+            } else {
+                chatView.classList.add('show');
+                lectureView.classList.add('hide');
+                
+                // 채팅 뷰로 전환될 때 환영 메시지 추가 (처음 한 번만)
+                if (chatMessages.length === 0) {
+                    setTimeout(() => {
+                        addChatMessage("안녕하세요! 궁금한 것이 있으시면 언제든 물어보세요.", false);
+                    }, 300);
+                }
+            }
+        }
+
+        // 채팅 팝업 토글 (기존 함수는 제거하고 새로운 뷰 전환 함수로 대체)
+        function toggleChatPopup() {
+            toggleChatView();
+        }
+
+        // 모든 팝업 닫기
+        function closeAllPopups() {
+            document.getElementById('instructorOptions').classList.remove('show');
+            document.getElementById('overlay').classList.remove('show');
+        }
+
+        // 파일 업로드 드래그&드롭
+        const fileUploadArea = document.getElementById('fileUploadArea');
+
+        fileUploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.add('dragover');
+        });
+
+        fileUploadArea.addEventListener('dragleave', () => {
+            fileUploadArea.classList.remove('dragover');
+        });
+
+        fileUploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUploadArea.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+
+        fileUploadArea.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '*/*';
+            input.onchange = (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            };
+            input.click();
+        });
+
+        function handleFileUpload(file) {
+            alert(`파일 "${file.name}"이 업로드되었습니다.`);
+            // 실제 파일 업로드 로직을 여기에 구현
+        }
+
+        // 채팅 입력 엔터키 처리
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 기본 강사 설정 (신생님 1)
+        window.addEventListener('load', () => {
+            selectInstructor('신생님 1', ['친절', '성실', '남자', 'ISTJ'], 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face');
+        });
+    </script>
+</body>
+</html>

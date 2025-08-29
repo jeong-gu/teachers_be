@@ -98,8 +98,8 @@ PERSONAS: Dict[str, Dict[str, str]] = {
             "항상 동기부여를 주며 “좋아! 바로 그거야!”, “멈추지 마, 끝까지 가보자!” 같은 구호를 포함하세요."
         ),
     },
-    "nmovie": {
-        "display": "최무비", "sex": "남성", "speaker": "nmovie",
+    "nwoojin": {
+        "display": "우진", "sex": "남성", "speaker": "nwoojin",
         "persona_rules": (
             "당신은 차갑고 날카로운 남자 비평가형 강사입니다. "
             "학생에게 단점을 숨기지 않고 솔직하게 지적하세요. "
@@ -165,6 +165,9 @@ def save_interaction(db, *, session_id: str, role: str, content: str,
 # =========================
 # 3) FastAPI
 # =========================
+from fastapi.staticfiles import StaticFiles
+
+
 app = FastAPI(title="RAG TeachKit (FAISS + Persona + Clova Voice TTS Premium)")
 origins = ["*"]
 app.add_middleware(
@@ -172,7 +175,9 @@ app.add_middleware(
     allow_origins=origins, allow_credentials=True,
     allow_methods=["*"], allow_headers=["*"],
 )
+app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
 
 # =========================
 # 4) LLM & Embeddings
@@ -253,8 +258,10 @@ def build_qa_prompt(P: Dict[str, str]) -> ChatPromptTemplate:
 - 어려운 용어는 쉬운 말로 바로 풀어줘.
 - 4~7문장: 핵심 요지 → 쉬운 예시 1개 → 마지막에 이해 확인 질문 1문장.
 - 🔥 "**핵심**:" 같은 강조하는 강조하는 멘트를 사용하지마.
-    (예:"**중요**:" ❌,
-        "**강조**:" ❌)
+    (예:"**중요**: 기타.." ❌,
+        "**강조**: 기타.." ❌,
+         **"스포츠 비유**: 개념 스키마가 팀 전략이라면, 내부 스키마는 실제 경기장에서 선수들의 포지션 배치와 움직임 방식이에요." ❌)
+- "**문장**"로 강조하는 멘트 사용하지마.
 강의 본문 출력이 끝나면 반드시 아래 형식의 최종 검토를 덧붙여:
 ###[최종 검토]
 1. [모범 답안 예시]와 비교해 적절했는지 검토
@@ -286,8 +293,10 @@ def build_lecture_prompt(P: Dict[str, str]) -> ChatPromptTemplate:
 - 4~7문장: 핵심 요지 → 쉬운 예시 1개 → 마지막에 이해 확인 질문 1문장.
 - 목록/번호/마크다운 금지. 어려운 용어는 바로 풀어서.
 - 🔥 "**핵심**:" 같은 강조하는 강조하는 멘트를 사용하지마.
-    (예:"**중요**:" ❌,
-        "**강조**:" ❌)
+    (예:"**중요**: 기타.." ❌,
+        "**강조**: 기타.." ❌,
+         **"스포츠 비유**: 개념 스키마가 팀 전략이라면, 내부 스키마는 실제 경기장에서 선수들의 포지션 배치와 움직임 방식이에요." ❌)
+- **로 강조하는 멘트 사용하지마.
 
 강의 본문 출력이 끝나면 반드시 아래 형식의 최종 검토를 덧붙여:
 ###[최종 검토]
@@ -466,7 +475,19 @@ class ChatResp(BaseModel):
 # =========================
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse(
+        "index.html",
+        {"request": request, "PERSONAS": PERSONAS}
+    )
+@app.get("/chat", response_class=HTMLResponse)
+async def chat(request: Request, teacher: str):
+    teacher_info = PERSONAS.get(teacher)
+    if not teacher_info:
+        return HTMLResponse(content=f"<h1>존재하지 않는 강사: {teacher}</h1>", status_code=404)
+    return templates.TemplateResponse(
+        "chat.html",
+        {"request": request, "teacher": teacher_info, "teacher_key": teacher}
+    )
 
 # =========================
 # 12) PDF Ingest → FAISS + Units

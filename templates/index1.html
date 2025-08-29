@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>RAG TeachKit Demo</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    #chat-box { border: 1px solid #ccc; padding: 10px; height: 300px; overflow-y: auto; margin-bottom: 10px; }
+    .msg-user { color: blue; margin: 5px 0; }
+    .msg-bot { color: green; margin: 5px 0; }
+    audio { width: 100%; margin-top: 5px; }
+  </style>
+</head>
+<body>
+  <h2>간단 RAG 데모</h2>
+
+  <h3>PDF 업로드</h3>
+  <form id="upload-form" enctype="multipart/form-data">
+    <input type="file" name="file" accept="application/pdf" />
+    <button type="submit">업로드</button>
+  </form>
+  <div id="upload-result"></div>
+
+  <h3>대화</h3>
+  <div id="chat-box"></div>
+  <input type="text" id="question" placeholder="질문을 입력하세요..." />
+  <button id="send-btn">보내기</button>
+  <label>
+    <input type="checkbox" id="tts-toggle" />
+    TTS로 듣기
+  </label>
+
+  <script>
+    let pdfUploaded = false;
+    const API = "http://localhost:9000";  // 서버 주소
+    let docId = null;
+    const sessionId = "demo-session";
+
+    // PDF 업로드
+    document.getElementById("upload-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const uploadResult = document.getElementById("upload-result");
+      uploadResult.innerText = " 업로드 중입니다... 잠시만 기다려주세요.";
+
+      const formData = new FormData(e.target);
+      try {
+        const res = await fetch(`${API}/ingest/pdf`, { method: "POST", body: formData });
+        const data = await res.json();
+        uploadResult.innerText = JSON.stringify(data, null, 2); // 결과 보기 좋게
+        if (data.doc_id) docId = data.doc_id;
+        if (data.message) {
+          pdfUploaded = true;   // 업로드 완료 표시
+        }
+      } catch (err) {
+        uploadResult.innerText = " 업로드 실패: " + err;
+      }
+    });
+
+    // 메시지 전송
+    document.getElementById("send-btn").addEventListener("click", async () => {
+      const q = document.getElementById("question").value.trim();
+      if (!q) return;
+      
+      if (!pdfUploaded) {   //  업로드 안 된 경우
+        alert("먼저 PDF를 업로드하세요!");
+        return;
+      }
+      
+      addMessage("user", q);
+      document.getElementById("question").value = "";
+
+      const wantTTS = document.getElementById("tts-toggle").checked;
+
+      const res = await fetch(`${API}/chat`, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          session_id: sessionId,
+          question: q,
+          want_tts: wantTTS
+        })
+      });
+      const data = await res.json();
+      addMessage("bot", data.answer, data.audio_url ? API + data.audio_url : null);
+    });
+
+    function addMessage(role, text, audioUrl=null) {
+      const box = document.getElementById("chat-box");
+      const div = document.createElement("div");
+      div.className = role === "user" ? "msg-user" : "msg-bot";
+      div.textContent = (role === "user" ? "🙋 " : "🤖 ") + text;
+      box.appendChild(div);
+
+      if (audioUrl) {
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = audioUrl;
+        div.appendChild(audio);
+        audio.play().catch(() => console.log("Autoplay blocked"));
+      }
+
+      box.scrollTop = box.scrollHeight;
+    }
+  </script>
+</body>
+</html>
