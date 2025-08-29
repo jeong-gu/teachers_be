@@ -263,21 +263,69 @@
     ];
     return responses[Math.floor(Math.random() * responses.length)];
   }
+// 첫 번째 페이지 재생
+async function playFirstPageAudio() {
+  try {
+    const response = await fetch("/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        question: "/teach",      // 서버가 기대하는 필드
+        session_id: "web-session-001",  // 세션 ID (실제는 uuid 추천)
+        persona: "{{ teacher_key }}",  // 선택한 강사 key
+        want_tts: true           // 오디오 생성 요청
+      })
+    });
 
-  // 재생/일시정지
-function togglePlay() {
+    if (!response.ok) {
+      throw new Error("서버 응답 실패");
+    }
+
+    const data = await response.json();
+
+    if (data.audio_url) {
+      currentAudio = new Audio(data.audio_url);
+
+      // 재생이 끝나면 상태 초기화
+      currentAudio.addEventListener("ended", () => {
+        isPlaying = false;
+        document.getElementById("playIcon").src = "/static/img/icons/play.png";
+      });
+
+      await currentAudio.play();
+      isPlaying = true;
+      document.getElementById("playIcon").src = "/static/img/icons/pause.png";
+    } else {
+      alert("오디오가 생성되지 않았습니다.\n답변: " + data.answer);
+    }
+  } catch (err) {
+    console.error("첫 페이지 오디오 재생 실패:", err);
+    alert("첫 페이지 오디오를 불러올 수 없습니다.");
+  }
+}
+
+// 재생/일시정지
+async function togglePlay() {
+  if (isUploaded && chatMessages.length === 0 && !currentAudio) {
+    // 첫 클릭 → 첫 페이지 오디오 로드 & 재생
+    await playFirstPageAudio();
+    return;
+  }
+
   if (!currentAudio) return; // 재생할 오디오 없음
+
   if (isPlaying) {
     currentAudio.pause();
+    isPlaying = false;
     document.getElementById("playIcon").src = "/static/img/icons/play.png";
   } else {
     currentAudio.play();
+    isPlaying = true;
     document.getElementById("playIcon").src = "/static/img/icons/pause.png";
   }
-  isPlaying = !isPlaying;
 }
 
- // 음소거/해제
+// 음소거/해제
 function toggleMute() {
   if (!currentAudio) return; // 오디오 없음
   isMuted = !isMuted;
@@ -422,6 +470,7 @@ function toggleMute() {
     fetch("/ingest/pdf", { method: "POST", body: formData })
       .then((res) => res.json())
       .then((data) => {
+        isUploaded = true;  
         uploadStatus.textContent = `업로드가 완료되었습니다. 페이지: ${data.pages}, 청크: ${data.chunks}`;
       })
       .catch((err) => {

@@ -98,8 +98,8 @@ PERSONAS: Dict[str, Dict[str, str]] = {
             "항상 동기부여를 주며 “좋아! 바로 그거야!”, “멈추지 마, 끝까지 가보자!” 같은 구호를 포함하세요."
         ),
     },
-    "nwoojin": {
-        "display": "우진", "sex": "남성", "speaker": "nwoojin",
+    "nmovie": {
+        "display": "우진", "sex": "남성", "speaker": "nmovie",
         "persona_rules": (
             "당신은 차갑고 날카로운 남자 비평가형 강사입니다. "
             "학생에게 단점을 숨기지 않고 솔직하게 지적하세요. "
