@@ -48,7 +48,9 @@
         </div>
 
         <div class="file-upload-area" id="fileUploadArea">
-          <div class="upload-icon">⬆️</div>
+          <div class="upload-icon">
+            <img src="static/img/icons/upload-btn.png" style="width: 100px" />
+          </div>
           <div class="upload-text">
             파일을 여기로 드래그하거나 클릭하여 업로드
           </div>
@@ -69,7 +71,7 @@
     <div class="chat-preview" id="chatPreview"></div>
 
     <!-- 페이지 이동 입력칸 -->
-    <!-- <div class="page-jump">
+    <div class="page-jump">
       <input
         type="number"
         id="page-number"
@@ -77,8 +79,8 @@
         min="1"
         style="width: 100px; padding: 5px; border: none"
       />
-      <button id="page-jump-btn">이동</button>
-    </div> -->
+      <button id="page-jump-btn" onclick="jumpToPage()">이동</button>
+    </div>
 
     <!-- 입력창 -->
     <div style="position: relative; width: 100%">
@@ -131,36 +133,6 @@
       </div>
       <div class="chat-footer">무엇이든 물어보세요</div>
     </div>
-
-    <!-- 강사 선택 팝업 -->
-    <!--     
-    <div class="instructor-options" id="instructorOptions">
-        <h3 style="margin-bottom: 20px;">강사를 선택하세요</h3>
-        
-        <div class="instructor-option" onclick="selectInstructor('신생님 1', ['친절', '성실', '남자', 'ISTJ'], 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face')">
-            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face" alt="강사1">
-            <div class="instructor-info">
-                <h4>신생님 1</h4>
-                <p>#친절 #성실 #남자 #ISTJ</p>
-            </div>
-        </div>
-
-        <div class="instructor-option" onclick="selectInstructor('김교수', ['전문가', '엄격', '여자', 'ENTJ'], 'https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face')">
-            <img src="https://images.unsplash.com/photo-1494790108755-2616b612b786?w=150&h=150&fit=crop&crop=face" alt="강사2">
-            <div class="instructor-info">
-                <h4>김교수</h4>
-                <p>#전문가 #엄격 #여자 #ENTJ</p>
-            </div>
-        </div>
-
-        <div class="instructor-option" onclick="selectInstructor('박선생', ['유머', '친근', '남자', 'ENFP'], 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face')">
-            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face" alt="강사3">
-            <div class="instructor-info">
-                <h4>박선생</h4>
-                <p>#유머 #친근 #남자 #ENFP</p>
-            </div>
-        </div>
-    </div> -->
 
     <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
 
